@@ -88,7 +88,7 @@ public class BybitApi : IDisposable
         const string apiPrefix = "/v5";
         Market = new BybitMarketApiEndpoint(symbolMapper, apiPrefix, securityProvider, _apiClient);
         Account = new BybitAccountApiEndpoint(symbolMapper, apiPrefix, securityProvider, _apiClient);
-        Position = new BybitPositionApiEndpoint(symbolMapper, apiPrefix, securityProvider, _apiClient);
+        Position = new BybitPositionApiEndpoint(Market, symbolMapper, apiPrefix, securityProvider, _apiClient);
         Trade = new BybitTradeApiEndpoint(Market, symbolMapper, apiPrefix, securityProvider, _apiClient);
     }
 

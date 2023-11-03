@@ -34,6 +34,7 @@ using QuantConnect.Orders.Fees;
 using QuantConnect.Securities;
 using QuantConnect.Util;
 using OrderStatus = QuantConnect.BybitBrokerage.Models.Enums.OrderStatus;
+using OrderType = QuantConnect.Orders.OrderType;
 
 namespace QuantConnect.BybitBrokerage;
 
@@ -197,6 +198,37 @@ public partial class BybitBrokerage
             if (order.Status is OrderStatus.Filled or OrderStatus.PartiallyFilled) continue;
 
             var leanOrder = OrderProvider.GetOrdersByBrokerageId(order.OrderId).FirstOrDefault();
+            if (leanOrder == null && order.StopOrderType is StopOrderType.TrailingProfit or StopOrderType.TrailingStop)
+            {
+
+
+                var securityType = order.Category switch
+                {
+                    BybitProductCategory.Inverse => SecurityType.CryptoFuture,
+                    BybitProductCategory.Linear => SecurityType.CryptoFuture,
+                    BybitProductCategory.Spot => SecurityType.Crypto,
+                    _ => throw new ArgumentOutOfRangeException(nameof(order.Category))
+                };
+                var symbol = _symbolMapper.GetLeanSymbol(order.Symbol, securityType, MarketName);
+                
+                //todo
+                leanOrder = OrderProvider
+                    .GetOrders(x =>
+                        x.Type == OrderType.TrailingStop &&
+                        //!x.BrokerId.Any() && 
+                        x.Quantity == (order.Side == OrderSide.Buy ? order.Quantity : -order.Quantity) &&
+                        x.Symbol == symbol)
+                    .FirstOrDefault();
+                leanOrder.BrokerId.Add(order.OrderId);
+                if(leanOrder == null) continue;
+                OnOrderIdChangedEvent(new BrokerageOrderIdChangedEvent
+                {
+                    BrokerId = leanOrder.BrokerId,
+                    OrderId = leanOrder.Id
+                });
+            }
+            
+            
             if (leanOrder == null) continue;
 
             var newStatus = ConvertOrderStatus(order.Status);

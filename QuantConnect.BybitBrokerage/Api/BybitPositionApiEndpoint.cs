@@ -18,7 +18,9 @@ using System.Collections.Generic;
 using QuantConnect.Brokerages;
 using QuantConnect.BybitBrokerage.Models;
 using QuantConnect.BybitBrokerage.Models.Enums;
+using QuantConnect.Orders;
 using QuantConnect.Securities;
+using OrderType = QuantConnect.Orders.OrderType;
 
 namespace QuantConnect.BybitBrokerage.Api;
 
@@ -28,16 +30,21 @@ namespace QuantConnect.BybitBrokerage.Api;
 /// </summary>
 public class BybitPositionApiEndpoint : BybitApiEndpoint
 {
+    private readonly BybitMarketApiEndpoint _marketApi;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BybitPositionApiEndpoint"/> class
     /// </summary>
+    /// <param name="marketApi">The market API used to get current ticker information</param>
     /// <param name="symbolMapper">The symbol mapper</param>
     /// <param name="apiPrefix">The api prefix</param>
     /// <param name="securityProvider">The security provider</param>
     /// <param name="apiClient">The Bybit api client</param>
-    public BybitPositionApiEndpoint(ISymbolMapper symbolMapper, string apiPrefix, ISecurityProvider securityProvider,
+    public BybitPositionApiEndpoint(BybitMarketApiEndpoint marketApi, ISymbolMapper symbolMapper, string apiPrefix,
+        ISecurityProvider securityProvider,
         BybitApiClient apiClient) : base(symbolMapper, apiPrefix, securityProvider, apiClient)
     {
+        _marketApi = marketApi;
     }
 
     /// <summary>
@@ -50,7 +57,7 @@ public class BybitPositionApiEndpoint : BybitApiEndpoint
         if (category == BybitProductCategory.Spot) return Array.Empty<BybitPositionInfo>();
 
         var parameters = new List<KeyValuePair<string, string>>();
-        
+
         if (category == BybitProductCategory.Linear)
         {
             parameters.Add(KeyValuePair.Create("settleCoin", "USDT"));
@@ -77,5 +84,46 @@ public class BybitPositionApiEndpoint : BybitApiEndpoint
         };
 
         ExecutePostRequest<ByBitResponse>("/position/switch-mode", requestBody);
+    }
+
+
+    /// <summary>
+    /// Set the take profit, stop loss or trailing stop for the position.
+    /// </summary>
+    public void SetTradingStop(BybitProductCategory category, Order order)
+    {
+        if (category is not (BybitProductCategory.Linear or BybitProductCategory.Inverse))
+        {
+            throw new NotSupportedException($"Category {category} is not supported. Only linear and inverse");
+        }
+
+        if (order.Type != OrderType.TrailingStop)
+        {
+            throw new NotSupportedException("This endpoint should only be used for tailing-stop orders");
+        }
+
+        var trailingOrder = (TrailingStopOrder)order;
+
+        var distance = trailingOrder.TrailingAmount;
+        if (trailingOrder.TrailingAsPercentage)
+        {
+            throw new NotImplementedException($"{nameof(trailingOrder.TrailingAsPercentage)} is not yet supported");
+            var tickerPrice = _marketApi.GetTickerPriceForOrder(category, order);
+            distance = tickerPrice * trailingOrder.TrailingAmount;
+        }
+
+        var ticker = SymbolMapper.GetBrokerageSymbol(order.Symbol);
+
+        var requestBody = new
+        {
+            category = category,
+            Symbol = ticker,
+            trailingStop = distance,
+            positionIdx = (int)PositionIndex.OneWayMode,
+            slSize = order.Quantity,
+            activePrice = trailingOrder.StopPrice == 0 ? default(decimal?) : trailingOrder.StopPrice,
+        };
+
+        ExecutePostRequest<ByBitResponse>("/position/trading-stop", requestBody);
     }
 }

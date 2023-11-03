@@ -29,6 +29,11 @@ public class BybitOrder
     /// Order id
     /// </summary>
     public string OrderId { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Bybit product category
+    /// </summary>
+    public BybitProductCategory Category { get; set; }
 
     /// <summary>
     /// Client order id
@@ -197,6 +202,11 @@ public class BybitOrder
     /// Reduce only
     /// </summary>
     public bool? ReduceOnly { get; set; }
+    
+    /// <summary>
+    /// Trailing stop (The distance from market price)
+    /// </summary>
+    public decimal? TrailingStop { get; set; }
 
     /// <summary>
     /// Create time

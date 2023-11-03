@@ -41,6 +41,11 @@ public enum StopOrderType
     TrailingStop,
     
     /// <summary>
+    /// Trailing profit
+    /// </summary>
+    TrailingProfit,
+    
+    /// <summary>
     /// Stop
     /// </summary>
     Stop,

@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 using System;
 using System.Collections.Generic;
@@ -74,6 +74,7 @@ public class BybitTradeApiEndpoint : BybitApiEndpoint
     /// </summary>
     /// <param name="category">The product category</param>
     /// <param name="order">The order to place</param>
+    /// <param name="useMargin">Whether margin should be used</param>
     /// <returns>The order update response</returns>
     public BybitUpdateOrderResponse PlaceOrder(BybitProductCategory category, Order order, bool useMargin)
     {
@@ -152,7 +153,7 @@ public class BybitTradeApiEndpoint : BybitApiEndpoint
                 req.OrderType = OrderType.Market;
                 if (category == BybitProductCategory.Spot && order.Direction == OrderDirection.Buy)
                 {
-                    var price = GetTickerPrice(category, order);
+                    var price = _marketApiClient.GetTickerPriceForOrder(category, order);
                     // Spot market buy orders require price in quote currency
                     req.Quantity *= price;
                 }
@@ -162,14 +163,14 @@ public class BybitTradeApiEndpoint : BybitApiEndpoint
                 req.OrderType = OrderType.Limit;
                 req.TriggerPrice = stopLimitOrder.StopPrice;
                 req.Price = stopLimitOrder.LimitPrice;
-                var ticker = GetTickerPrice(category, order);
+                var ticker = _marketApiClient.GetTickerPriceForOrder(category, order);
                 req.TriggerDirection = req.TriggerPrice > ticker ? 1 : 2;
 
                 break;
             case StopMarketOrder stopMarketOrder:
                 req.OrderType = OrderType.Market;
                 req.TriggerPrice = stopMarketOrder.StopPrice;
-                ticker = GetTickerPrice(category, order);
+                ticker = _marketApiClient.GetTickerPriceForOrder(category, order);
                 req.TriggerDirection = req.TriggerPrice > ticker ? 1 : 2;
                 req.ReduceOnly = true;
 
@@ -186,7 +187,7 @@ public class BybitTradeApiEndpoint : BybitApiEndpoint
                 req.OrderType = OrderType.Limit;
                 req.TriggerPrice = limitIfTouched.TriggerPrice;
                 req.Price = limitIfTouched.LimitPrice;
-                ticker = GetTickerPrice(category, order);
+                ticker = _marketApiClient.GetTickerPriceForOrder(category, order);
                 req.TriggerDirection = req.TriggerPrice > ticker ? 1 : 2;
 
                 break;
@@ -194,27 +195,6 @@ public class BybitTradeApiEndpoint : BybitApiEndpoint
         }
 
         return req;
-    }
-
-
-    private decimal GetTickerPrice(BybitProductCategory category, Order order)
-    {
-        var security = SecurityProvider.GetSecurity(order.Symbol);
-        var tickerPrice = order.Direction == OrderDirection.Buy ? security.AskPrice : security.BidPrice;
-        if (tickerPrice == 0)
-        {
-            var brokerageSymbol = SymbolMapper.GetBrokerageSymbol(order.Symbol);
-            var ticker = _marketApiClient.GetTicker(category, brokerageSymbol);
-            if (ticker == null)
-            {
-                throw new KeyNotFoundException(
-                    $"BinanceBrokerage: Unable to resolve currency conversion pair: {order.Symbol}");
-            }
-
-            tickerPrice = order.Direction == OrderDirection.Buy ? ticker.Ask1Price!.Value : ticker.Bid1Price!.Value;
-        }
-
-        return tickerPrice;
     }
 
     private bool IsLimitType(QuantConnect.Orders.OrderType orderType)

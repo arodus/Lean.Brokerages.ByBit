@@ -19,6 +19,7 @@ using System.Linq;
 using QuantConnect.Brokerages;
 using QuantConnect.BybitBrokerage.Models;
 using QuantConnect.BybitBrokerage.Models.Enums;
+using QuantConnect.Orders;
 using QuantConnect.Securities;
 
 namespace QuantConnect.BybitBrokerage.Api;
@@ -232,6 +233,33 @@ public class BybitMarketApiEndpoint : BybitApiEndpoint
                 fromMs = (long)Time.DateTimeToUnixTimeStampMilliseconds(lastOiTime) + msToNextBar;
             }
         }
+    }
+
+    /// <summary>
+    /// Gets the current relevant (bid or ask) price for the order
+    /// </summary>
+    /// <param name="category">The product category</param>
+    /// <param name="order">The order</param>
+    /// <returns>The bid or ask price of the orders symbol based on the order direction</returns>
+    /// <exception cref="KeyNotFoundException"></exception>
+    public decimal GetTickerPriceForOrder(BybitProductCategory category, Order order)
+    {
+        var security = SecurityProvider.GetSecurity(order.Symbol);
+        var tickerPrice = order.Direction == OrderDirection.Buy ? security.AskPrice : security.BidPrice;
+        if (tickerPrice == 0)
+        {
+            var brokerageSymbol = SymbolMapper.GetBrokerageSymbol(order.Symbol);
+            var ticker = GetTicker(category, brokerageSymbol);
+            if (ticker == null)
+            {
+                throw new KeyNotFoundException(
+                    $"{nameof(BybitBrokerage)}: Unable to resolve currency conversion pair: {order.Symbol}");
+            }
+
+            tickerPrice = order.Direction == OrderDirection.Buy ? ticker.Ask1Price!.Value : ticker.Bid1Price!.Value;
+        }
+
+        return tickerPrice;
     }
 
     private static string GetOpenInterestIntervalString(Resolution resolution)

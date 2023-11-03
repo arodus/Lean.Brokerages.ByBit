@@ -48,14 +48,28 @@ public partial class BybitBrokerage
                     Order order;
                     if (bybitOrder.StopOrderType != null)
                     {
-                        if (bybitOrder.StopOrderType == StopOrderType.TrailingStop)
+                        if (bybitOrder.StopOrderType is (StopOrderType.TrailingProfit or StopOrderType.TrailingStop))
                         {
-                            throw new NotSupportedException();
+                            order = new TrailingStopOrder(symbol, bybitOrder.Quantity, bybitOrder.TriggerPrice ?? 0,
+                                bybitOrder.TrailingStop ?? 0, false, bybitOrder.CreateTime, 
+                                properties: new BybitOrderProperties
+                                {
+                                    ReduceOnly = true,
+                                });
                         }
+                        else
+                        {
 
-                        order = bybitOrder.OrderType == OrderType.Limit
-                            ? new StopLimitOrder(symbol, bybitOrder.Quantity, price, bybitOrder.Price!.Value, bybitOrder.CreateTime)
-                            : new StopMarketOrder(symbol, bybitOrder.Quantity, price, bybitOrder.CreateTime);
+                            var orderProperties = new BybitOrderProperties
+                            {
+                                ReduceOnly = true
+                            };
+                            
+                            order = bybitOrder.OrderType == OrderType.Limit
+                                ? new StopLimitOrder(symbol, bybitOrder.Quantity, price, bybitOrder.Price!.Value,
+                                    bybitOrder.CreateTime, properties: orderProperties)
+                                : new StopMarketOrder(symbol, bybitOrder.Quantity, price, bybitOrder.CreateTime, properties: orderProperties);
+                        }
                     }
                     else
                     {
@@ -123,17 +137,27 @@ public partial class BybitBrokerage
         }
 
         var submitted = false;
-
+        var category = GetBybitProductCategory(order.Symbol);
+        
+        
         _messageHandler.WithLockedStream(() =>
         {
-            var result = ApiClient.Trade.PlaceOrder(GetBybitProductCategory(order.Symbol), order,
-                useMargin: _algorithm.BrokerageModel.AccountType == AccountType.Margin);
-            order.BrokerId.Add(result.OrderId);
-            OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bybit Order Event")
+            if (order.Type == Orders.OrderType.TrailingStop)
             {
-                Status = OrderStatus.Submitted
-            });
-            submitted = true;
+                ApiClient.Position.SetTradingStop(category, order);
+                submitted = true;
+            }
+            else
+            {
+                var result = ApiClient.Trade.PlaceOrder(GetBybitProductCategory(order.Symbol), order,
+                    useMargin: _algorithm.BrokerageModel.AccountType == AccountType.Margin);
+                order.BrokerId.Add(result.OrderId);
+                OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bybit Order Event")
+                {
+                    Status = OrderStatus.Submitted
+                });
+                submitted = true;
+            }
         });
 
         return submitted;

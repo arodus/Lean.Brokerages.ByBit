@@ -198,7 +198,6 @@ public partial class BybitBrokerage : BaseWebsocketsBrokerage, IDataQueueHandler
     /// <param name="securityProvider">The security provider is required</param>
     /// <param name="aggregator">The aggregator for consolidating ticks</param>
     /// <param name="job">The live job packet</param>
-    /// <param name="marketName">Market name</param>
     /// <param name="vipLevel">Bybit VIP level</param>
     private void Initialize(string baseWssUrl, string restApiUrl, string apiKey, string apiSecret,
         IAlgorithm algorithm, IOrderProvider orderProvider, ISecurityProvider securityProvider,
