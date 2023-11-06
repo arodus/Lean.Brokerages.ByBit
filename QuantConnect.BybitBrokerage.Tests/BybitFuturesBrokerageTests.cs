@@ -45,7 +45,6 @@ public partial class BybitFuturesBrokerageTests : BybitBrokerageTests
     {
         return new[]
         {
-            new TestCaseData(new TrailingStopOrderTestParameters(BTCUSDT, 50000m,10000m)).SetName("TrailingStopOrder"),
             new TestCaseData(new MarketOrderTestParameters(BTCUSDT)).SetName("MarketOrder"),
             new TestCaseData(new LimitOrderTestParameters(BTCUSDT, 50000m, 10000m)).SetName("LimitOrder"),
             new TestCaseData(new StopMarketOrderTestParameters(BTCUSDT, 50000m, 10000m)).SetName("StopMarketOrder"),
@@ -198,6 +197,28 @@ public partial class BybitFuturesBrokerageTests : BybitBrokerageTests
         PlaceOrderWaitForStatus(stop, Orders.OrderStatus.Filled, 600);
     }
     
+    [Test]
+    public void FillTrailingStopOrderPercentageShort()
+    {
+        Log.DebuggingEnabled = true;
+        var order = new MarketOrder(Symbol, GetDefaultQuantity(), DateTime.Today);
+        PlaceOrderWaitForStatus(order);
+
+        var stop = new TrailingStopOrder(Symbol, -GetDefaultQuantity(), 0.00001m, true, DateTime.Now);
+        PlaceOrderWaitForStatus(stop, Orders.OrderStatus.Filled, 600);
+    }
+    
+    [Test]
+    public void FillTrailingStopOrderPercentageLong()
+    {
+        Log.DebuggingEnabled = true;
+        var order = new MarketOrder(Symbol, GetDefaultQuantity(), DateTime.Today);
+        PlaceOrderWaitForStatus(order);
+
+        var stop = new TrailingStopOrder(Symbol, -GetDefaultQuantity(), 0.00001m, true, DateTime.Now);
+        PlaceOrderWaitForStatus(stop, Orders.OrderStatus.Filled, 600);
+    }
+
     [Test]
     public void FillTrailingStopOrderLong()
     {

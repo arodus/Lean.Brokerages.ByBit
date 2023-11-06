@@ -105,14 +105,16 @@ public class BybitPositionApiEndpoint : BybitApiEndpoint
         var trailingOrder = (TrailingStopOrder)order;
 
         var distance = trailingOrder.TrailingAmount;
+        var ticker = SymbolMapper.GetBrokerageSymbol(order.Symbol);
+
         if (trailingOrder.TrailingAsPercentage)
         {
-            throw new NotImplementedException($"{nameof(trailingOrder.TrailingAsPercentage)} is not yet supported");
-            var tickerPrice = _marketApi.GetTickerPriceForOrder(category, order);
-            distance = tickerPrice * trailingOrder.TrailingAmount;
+            var security = SecurityProvider.GetSecurity(order.Symbol);
+            var tickSize = security.SymbolProperties.MinimumPriceVariation;
+            var lastPrice = security.Price != 0 ? security.Price :_marketApi.GetTicker(category, ticker).LastPrice ?? 0;
+            distance = Math.Round((lastPrice  * trailingOrder.TrailingAmount)/tickSize) * tickSize;
         }
 
-        var ticker = SymbolMapper.GetBrokerageSymbol(order.Symbol);
 
         var requestBody = new
         {
